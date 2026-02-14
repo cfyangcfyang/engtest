@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2000 單字挑戰 - 錯題停頓強化版</title>
+    
+    <!-- 1. 自動連結單字庫檔案 -->
+    <script src="jh2000.js"></script>
+
+    <!-- 2. 引入噴彩帶特效 -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <style>
+        :root {
+            --primary-bg: #1a1a1a;
+            --card-bg: #2c2c2c;
+            --accent-gold: #f1c40f;
+            --accent-red: #c0392b;
+            --correct-green: #27ae60;
+            --text-white: #ffffff;
+        }
+
+        body {
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            background-color: var(--primary-bg);
+            color: var(--text-white);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .quiz-container {
+            background-color: var(--card-bg);
+            padding: 2rem;
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+            border: 1px solid #444;
+            max-height: 95vh;
+            overflow-y: auto;
+        }
+
+        #quiz-screen, #result-screen { display: none; }
+
+        .input-group { margin: 25px 0; text-align: left; }
+        .input-group label { display: block; margin-bottom: 12px; color: var(--accent-gold); font-weight: bold; font-size: 1.2rem; }
+        .num-input { 
+            width: 100%; padding: 15px; background: #333; border-radius: 12px; 
+            color: #fff; border: 2px solid #444; box-sizing: border-box; 
+            font-size: 1.5rem; text-align: center;
+        }
+
+        .score-board {
+            background-color: var(--accent-red);
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .question-area {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+            min-height: 5rem;
+        }
+
+        .chinese-hint {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--accent-gold);
+            line-height: 1.3;
+        }
+
+        .audio-btn {
+            background: #444;
+            border: none;
+            color: #fff;
+            font-size: 1.5rem;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.2s;
+        }
+        .audio-btn:hover { background: #666; transform: scale(1.1); }
+
+        .length-info { color: #888; letter-spacing: 5px; font-family: 'Courier New', monospace; font-size: 1.3rem; margin-bottom: 25px; }
+
+        input[type="text"] {
+            width: 95%; padding: 15px; font-size: 1.8rem; border: 3px solid #444; 
+            border-radius: 12px; background-color: #333; color: #fff; 
+            text-align: center; outline: none; transition: 0.3s;
+        }
+
+        .btn { padding: 18px; font-size: 1.2rem; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; margin-top: 10px; }
+        .primary-btn { background: linear-gradient(135deg, #c0392b, #8e44ad); color: white; }
+        .review-btn { background: linear-gradient(135deg, #f39c12, #e67e22); color: white; }
+        .next-btn { background: linear-gradient(135deg, #3498db, #2980b9); color: white; }
+        .restart-btn { background-color: #444; color: #ccc; }
+        .btn:hover { filter: brightness(1.2); transform: scale(1.02); }
+
+        .mistake-container { margin-top: 15px; text-align: left; background: #1a1a1a; border-radius: 10px; padding: 10px; max-height: 200px; overflow-y: auto; }
+        .mistake-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        .mistake-table th, .mistake-table td { padding: 10px; border-bottom: 1px solid #333; }
+        .mistake-table th { color: var(--accent-gold); text-align: left; }
+        .correct-ans { color: var(--correct-green); font-weight: bold; font-family: monospace; font-size: 1.1rem; }
+
+        .final-score { font-size: 6rem; color: var(--accent-gold); font-weight: 900; margin: 0; }
+        .correct-flash { border-color: var(--correct-green) !important; background-color: #1e392a !important; }
+        .wrong-flash { border-color: var(--accent-red) !important; background-color: #3d1c1a !important; }
+    </style>
+</head>
+<body>
+
+<div class="quiz-container">
+    <!-- 1. 開始畫面 -->
+    <div id="start-screen">
+        <h1 style="color:var(--accent-gold); font-size: 2.2rem; margin-bottom: 10px;">2000 單字挑戰 🔊</h1>
+        <p style="color: #888;"> </p>
+        
+        <div class="input-group">
+            <label>請輸入測驗題數：</label>
+            <input type="number" id="quiz-count" class="num-input" value="10" min="1" max="2000">
+        </div>
+        <button class="btn primary-btn" onclick="startQuiz()">開始挑戰</button>
+    </div>
+
+    <!-- 2. 測驗畫面 -->
+    <div id="quiz-screen">
+        <div class="score-board">目前的得分：<span id="live-score">0</span> / 100</div>
+        <div id="progress" style="color:#777; font-size: 0.9rem; margin-bottom: 10px;">QUESTION 1</div>
+        
+        <div class="question-area">
+            <div class="chinese-hint" id="chinese-text">---</div>
+            <button class="audio-btn" onclick="speakCurrentWord()">🔊</button>
+        </div>
+
+        <div class="length-info" id="length-hint">_ _ _</div>
+        
+        <input type="text" id="answer-input" placeholder="請在此輸入英文..." autocomplete="off" spellcheck="false">
+        <div id="feedback-text" style="height:35px; margin-top:10px; font-weight:bold; font-size: 1.1rem;"></div>
+        
+        <!-- 送出按鈕 -->
+        <button id="submit-btn" class="btn primary-btn" onclick="handleAnswer()">送出答案</button>
+        <!-- 答錯後出現的按鈕 -->
+        <button id="next-btn" class="btn next-btn" style="display:none;" onclick="goToNext()">下一題</button>
+    </div>
+
+    <!-- 3. 結果畫面 -->
+    <div id="result-screen">
+        <h2 style="letter-spacing: 5px; margin-bottom: 5px;">最終結果</h2>
+        <div class="final-score" id="total-score">0</div>
+        <div id="congrats-msg" style="font-weight: bold; margin: 15px 0; font-size: 1.2rem;"></div>
+        
+        <div id="mistake-area" style="display: none;">
+            <p style="color: var(--accent-red); font-weight: bold; text-align: left; margin-bottom: 5px;">需複習的單字：</p>
+            <div class="mistake-container">
+                <table class="mistake-table">
+                    <thead><tr><th>中文 (詞性)</th><th>正確答案</th></tr></thead>
+                    <tbody id="mistake-body"></tbody>
+                </table>
+            </div>
+            <button class="btn review-btn" onclick="startReview()">僅複習以上錯題</button>
+        </div>
+
+        <button class="btn restart-btn" onclick="location.reload()">重新開始(全部單字)</button>
+    </div>
+</div>
+
+<script>
+    // 音效載入
+    const winSound = new Audio('IKEA.mp3');
+    const loseSound = new Audio('0.mp3');
+
+    let quizWords = [];
+    let wrongWords = [];
+    let currentIndex = 0;
+    let score = 0;
+    let isProcessing = false;
+    let isWaitingForNext = false; // 是否正在等待玩家點擊「下一題」
+
+    function startQuiz() {
+        if (typeof allVocabulary === 'undefined') {
+            alert("找不到單字庫檔案 jh2000.js，請確認該檔案存在於同一個資料夾。");
+            return;
+        }
+
+        const countInput = document.getElementById('quiz-count');
+        const count = Math.min(parseInt(countInput.value) || 10, allVocabulary.length);
+        quizWords = [...allVocabulary].sort(() => Math.random() - 0.5).slice(0, count);
+        
+        initQuizSession();
+    }
+
+    function initQuizSession() {
+        currentIndex = 0;
+        score = 0;
+        wrongWords = [];
+        document.getElementById("start-screen").style.display = "none";
+        document.getElementById("result-screen").style.display = "none";
+        document.getElementById("quiz-screen").style.display = "block";
+        document.getElementById("live-score").innerText = "0";
+        
+        [winSound, loseSound].forEach(s => {
+            s.play().then(() => { s.pause(); s.currentTime = 0; }).catch(() => {});
+        });
+
+        showQuestion();
+    }
+
+    function showQuestion() {
+        isProcessing = false;
+        isWaitingForNext = false;
+        const q = quizWords[currentIndex];
+        const input = document.getElementById("answer-input");
+        
+        document.getElementById("progress").innerText = `QUESTION ${currentIndex + 1} / ${quizWords.length}`;
+        document.getElementById("chinese-text").innerText = q.pos ? `${q.zh} (${q.pos})` : q.zh;
+        document.getElementById("length-hint").innerText = q.en.split('').map(c => c === " " ? "\u00A0" : "_").join(" ");
+        
+        document.getElementById("feedback-text").innerText = "";
+        input.value = "";
+        input.className = "";
+        input.disabled = false;
+        input.focus();
+        
+        // 按鈕狀態重置
+        document.getElementById("submit-btn").style.display = "block";
+        document.getElementById("submit-btn").disabled = false;
+        document.getElementById("next-btn").style.display = "none";
+    }
+
+    function speakCurrentWord() {
+        const q = quizWords[currentIndex];
+        if (!q) return;
+        window.speechSynthesis.cancel();
+        const msg = new SpeechSynthesisUtterance(q.en);
+        msg.lang = 'en-US';
+        msg.rate = 0.8;
+        window.speechSynthesis.speak(msg);
+    }
+
+    function handleAnswer() {
+        if (isProcessing) return;
+        const inputField = document.getElementById("answer-input");
+        const feedbackField = document.getElementById("feedback-text");
+        const submitBtn = document.getElementById("submit-btn");
+        const nextBtn = document.getElementById("next-btn");
+        
+        const userInput = inputField.value.trim().toLowerCase();
+        const correctAnswer = quizWords[currentIndex].en.toLowerCase();
+
+        if (userInput === "") return;
+        
+        isProcessing = true;
+        inputField.disabled = true;
+        submitBtn.disabled = true;
+
+        if (userInput === correctAnswer) {
+            // 答對時的邏輯
+            score += (100 / quizWords.length);
+            document.getElementById("live-score").innerText = Math.round(score);
+            inputField.classList.add("correct-flash");
+            feedbackField.innerText = "正確！CORRECT!";
+            feedbackField.style.color = "#27ae60";
+
+            // 答對後 1.5 秒自動跳下一題
+            setTimeout(goToNext, 1500);
+        } else {
+            // 答錯時的邏輯
+            wrongWords.push(quizWords[currentIndex]);
+            inputField.classList.add("wrong-flash");
+            feedbackField.innerText = `錯誤！正確答案是：${correctAnswer.toUpperCase()}`;
+            feedbackField.style.color = "#e74c3c";
+
+            // 顯示「下一題」按鈕，隱藏「送出」按鈕
+            submitBtn.style.display = "none";
+            nextBtn.style.display = "block";
+            isWaitingForNext = true;
+        }
+    }
+
+    // 跳到下一題或是結束
+    function goToNext() {
+        if (currentIndex < quizWords.length - 1) {
+            currentIndex++;
+            showQuestion();
+        } else {
+            showResult();
+        }
+    }
+
+    function showResult() {
+        document.getElementById("quiz-screen").style.display = "none";
+        document.getElementById("result-screen").style.display = "block";
+        
+        const finalScore = Math.round(score);
+        document.getElementById("total-score").innerText = finalScore;
+        const msgBox = document.getElementById("congrats-msg");
+        const mistakeArea = document.getElementById("mistake-area");
+        const mistakeBody = document.getElementById("mistake-body");
+
+        mistakeBody.innerHTML = "";
+
+        if (finalScore >= 100) {
+            msgBox.innerHTML = "🏆 完美全對！你是單字大師！";
+            msgBox.style.color = "#f1c40f";
+            mistakeArea.style.display = "none";
+            winSound.play().catch(() => {});
+            fireConfetti();
+        } else {
+            mistakeArea.style.display = "block";
+            wrongWords.forEach(w => {
+                const qText = w.pos ? `${w.zh} (${w.pos})` : w.zh;
+                const row = `<tr><td>${qText}</td><td class="correct-ans">${w.en}</td></tr>`;
+                mistakeBody.insertAdjacentHTML('beforeend', row);
+            });
+            if (finalScore < 60) {
+                msgBox.innerText = "💀 成績不佳...再試一次吧！";
+                msgBox.style.color = "#ff4d4d";
+                loseSound.play().catch(() => {});
+            } else {
+                msgBox.innerText = "挑戰結束！加油！";
+                msgBox.style.color = "#f1c40f";
+            }
+        }
+    }
+
+    function startReview() {
+        quizWords = [...wrongWords];
+        initQuizSession();
+    }
+
+    // 鍵盤事件監聽
+    document.getElementById("answer-input").addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+            if (isWaitingForNext) {
+                goToNext();
+            } else {
+                handleAnswer();
+            }
+        }
+    });
+
+    function fireConfetti() {
+        const duration = 4000;
+        const end = Date.now() + duration;
+        (function frame() {
+            confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 } });
+            confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 } });
+            if (Date.now() < end) requestAnimationFrame(frame);
+        }());
+    }
+</script>
+
+</body>
+</html>
